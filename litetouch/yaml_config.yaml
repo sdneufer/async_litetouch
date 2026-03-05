@@ -14,9 +14,8 @@ light:
 
     # Your lights
     lights:
-
-    # First Floor
-      - name: Mail Hall
+      # First Floor
+      - name: Main Hall
         loadid: 82
         module: "0011"
         output: 1
@@ -99,7 +98,7 @@ light:
       - name: Butler Cabinets
         loadid: 235
         module: "0017"
-        output: 3
+        output: 2
       - name: Laundry Room
         loadid: 314
         module: "0017"
@@ -140,9 +139,12 @@ light:
         loadid: 52
         module: "0010"
         output: 0
+      - name: Sun Room
+        loadid: 76
+        module: "0007"
+        output: 3
 
-
-    # Second Floor
+      # Second Floor
       - name: Rear Chandelier
         loadid: 105
         module: "0008"
@@ -213,9 +215,7 @@ light:
         module: "0010"
         output: 5
 
-
-
-    # Basement
+      # Basement
       - name: Patrick Downlights
         loadid: 134
         module: "0007"
@@ -285,5 +285,4 @@ light:
         loadid: 167
         module: "0022"
         output: 3
-
 
