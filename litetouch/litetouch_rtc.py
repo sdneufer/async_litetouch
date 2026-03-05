@@ -4,8 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Any
 
-log = logging.getLogger("litetouch")
-log.setLevel(logging.INFO)
+_LOGGER = logging.getLogger(__name__)
 
 
 # ----------------------------
@@ -164,7 +163,7 @@ class _LiteTouchTransport:
 
     async def _connect(self) -> None:
         self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
-        log.info("[%s] connected to %s:%s", self.name, self.host, self.port)
+        _LOGGER.info("[%s] connected to %s:%s", self.name, self.host, self.port)
 
     async def _run(self) -> None:
         delay = self.reconnect_min_delay
@@ -201,22 +200,22 @@ class _LiteTouchTransport:
                     try:
                         self.on_message(resp)
                     except Exception:
-                        log.exception("[%s] on_message handler error", self.name)
+                        _LOGGER.exception("[%s] on_message handler error", self.name)
 
             except asyncio.IncompleteReadError:
-                log.warning("[%s] connection closed by peer", self.name)
+                _LOGGER.warning("[%s] connection closed by peer", self.name)
                 await self._disconnect()
             except (ConnectionError, OSError) as e:
-                log.warning("[%s] connection error: %s", self.name, e)
+                _LOGGER.warning("[%s] connection error: %s", self.name, e)
                 await self._disconnect()
             except asyncio.LimitOverrunError:
                 # If controller sends malformed line without delimiter; try continue
-                log.warning("[%s] read limit overrun; resetting connection", self.name)
+                _LOGGER.warning("[%s] read limit overrun; resetting connection", self.name)
                 await self._disconnect()
             except asyncio.CancelledError:
                 break
             except Exception:
-                log.exception("[%s] unexpected error; resetting connection", self.name)
+                _LOGGER.exception("[%s] unexpected error; resetting connection", self.name)
                 await self._disconnect()
 
             if self.reconnect and not self._stop.is_set() and not self.is_connected:
@@ -234,6 +233,7 @@ class _LiteTouchTransport:
             if self.print_raw:
                 print(f"[{self.name}] >> {command.strip()}")
             self._writer.write(command.encode("ascii", errors="replace"))
+            _LOGGER.debug(f"{command}")
             await self._writer.drain()
 
     async def request(
