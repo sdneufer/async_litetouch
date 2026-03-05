@@ -499,18 +499,20 @@ class LiteTouchClient:
         )
 
     async def get_module_levels(self, module_hex: str) -> Tuple[str, List[int]]:
-        # R,DGMLV,<mmm> -> R,RQRES,DGMLV,<map>,<level1>.. 
+        # R,DGMLV,<mmm> -> R,RQRES,DGMLV,<map>,<level1>.. [1](https://fresenius-my.sharepoint.com/personal/patrick_carr_fresenius-kabi_com/Documents/Microsoft%20Copilot%20Chat%20Files/5000,%205K%20-%20LiteTouch%20Integration%20Protocols.pdf)
         t = self._pick_cmd_transport()
         resp = await t.request(
             self._cmd("R", "DGMLV", module_hex),
             expect=self._expect_query("DGMLV"),
             timeout=3.0,
         )
+        _LOGGER.debug(f"Response: {resp}")
         if not resp.fields:
             return "", []
-        bitmap = resp.fields[2:]
+        # bitmap = resp.fields[2:]
+        bitmap = resp.fields[1]
         # levels = [int(x) for x in resp.fields[1:] if x != ""]
-        levels = [_int_auto(x) for x in resp.fields[1:] if x != ""]
+        levels = [_int_auto(x) for x in resp.fields[2:] if x != ""]
         return bitmap, levels
 
     async def set_module_levels(

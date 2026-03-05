@@ -48,7 +48,7 @@ class LiteTouchBridge:
         port: int,
         command_connections: int = 4,
         event_connection: bool = True,
-        default_transition: int = 1,
+        default_transition: int = 3,
     ) -> None:
         self._client = LiteTouchClient(
             host,
@@ -116,12 +116,36 @@ class LiteTouchBridge:
             ):
                 return
 
-            bitmap, levels = await self._client.get_module_levels(
-                module_hex
-            )  # DGMLV [1](https://developers.home-assistant.io/docs/creating_integration_manifest/)
-            # DGMLV returns up to 8; pad to 8 with -1
-            padded = list(levels[:8]) + [-1] * (8 - len(levels))
-            self._module_levels[module_int] = padded
+        bitmap_hex, levels = await self._client.get_module_levels(module_hex)  # DGMLV
+        _LOGGER.debug(f"DGMLV Resp.  Bitmap Hex: {bitmap_hex}.  Levels: {levels}")
+
+        # DGMLV returns up to 8; pad/truncate to exactly 8
+        padded = list(levels[:8]) + [-1] * (8 - len(levels))
+
+        # Apply bitmap: if bit says OFF, treat level as 0 (but preserve -1 unknown)
+        bitmap_int = int(str(bitmap_hex), 16)
+
+        # Configure this flag in your bridge __init__ as needed:
+        # self._msb_first = True  # if output0 corresponds to bit7 (0x80)
+        msb_first = getattr(self, "_msb_first", False)
+
+        def bit_is_on(output_index: int) -> bool:
+            """Check ON/OFF from bitmap for an output index 0..7."""
+            if msb_first:
+                # output0 -> bit7, output7 -> bit0
+                bitpos = 7 - output_index
+            else:
+                # output0 -> bit0, output7 -> bit7
+                bitpos = output_index
+            return ((bitmap_int >> bitpos) & 1) == 1
+
+        for i in range(8):
+            if padded[i] < 0:
+                continue  # keep unknowns
+            if not bit_is_on(i):
+                padded[i] = 0
+
+        self._module_levels[module_int] = padded
 
     async def lt_toggle_switch(
         self,
@@ -175,31 +199,57 @@ class LiteTouchBridge:
         transition: Optional[int] = None,
     ) -> None:
         """
-        Uses DSMLV to set one output while preserving other outputs from cache. [1](https://developers.home-assistant.io/docs/creating_integration_manifest)
+        Uses DSMLV to set one output without sending all 8 levels.
+
+        DSMLV is sparse: the bitmap indicates which outputs are included, and only those
+        levels should be sent (in bit order). Other outputs are left unchanged by the device.
         """
         module_int = int(module_hex, 16)
         transition = self._default_transition if transition is None else transition
-        _LOGGER.debug(f"module int: {module_int}  module_hex {module_hex}")
+
+        _LOGGER.debug("module int: %s  module_hex %s", module_int, module_hex)
+
+        # Ensure we have a cached view (for HA state tracking)
         await self.ensure_module_cached(module_hex)
 
-        # Clone cached levels
+        # Clamp & apply to cached copy
         current = self._module_levels.get(module_int, [-1] * 8)
-        _LOGGER.debug(
-            f"current levels: {current}, output value (module socket#): {output}"
-        )
+        _LOGGER.debug("current levels: %s, output (socket#): %s", current, output)
+
         new_levels = list(current)
         new_levels[output] = max(0, min(100, int(level_pct)))
-        _LOGGER.debug(f"new levels: {new_levels}")
+        _LOGGER.debug("new levels: %s", new_levels)
 
+        # Bitmap that selects which outputs we are sending
         bitmap_hex = bitmask_for_output(output)
+        _LOGGER.debug("bitmap_hex: %s", bitmap_hex)
 
-        _LOGGER.debug(f"bitmap_hex: {bitmap_hex}")
+        # Build sparse payload: only levels for bits set in bitmap
+        mask = int(bitmap_hex, 16)
+        levels_to_send: list[int] = []
 
-        # Send DSMLV with all 8 levels so we don't accidentally change others
-        await self._client.initialize_load_levels(loadid, level_pct)
-        # await self._client.set_module_levels(
-        #     module_hex, bitmap_hex, int(transition), new_levels
-        # )
+        # For 8 outputs, pack values in increasing bit order (bit0..bit7)
+        # (This matches the common DSMLV convention where 0x40 -> output 6.)
+        for i in range(8):
+            if mask & (1 << i):
+                lvl = new_levels[i]
+                # If cache is uninitialized (-1) for any selected output, default safely
+                if lvl < 0:
+                    lvl = 0
+                levels_to_send.append(int(lvl))
+
+        _LOGGER.debug("levels_to_send (sparse): %s", levels_to_send)
+
+        # Update cache now that we intend to set it (keeps HA state consistent)
+        self._module_levels[module_int] = new_levels
+
+        # Send only the selected levels; do NOT send all 8
+        await self._client.set_module_levels(
+            module_hex,
+            bitmap_hex,
+            int(transition),
+            levels_to_send,
+        )
 
         # optimistic update (controller should also push RMODU)
         self._module_levels[module_int] = new_levels
