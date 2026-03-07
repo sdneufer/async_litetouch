@@ -28,6 +28,9 @@ from .const import (
     CONF_LOADID,
     CONF_MODULE,
     CONF_OUTPUT,
+    CONF_LOCATION,
+    CONF_FLOOR,
+    CONF_LTCODE,
 )
 from .litetouch_bridge import LiteTouchBridge, pct_to_ha, ha_to_pct
 from .services import async_setup_services
@@ -48,9 +51,12 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
                     vol.Required(CONF_NAME): cv.string,
                     vol.Required(CONF_MODULE): cv.string,  # hex string e.g. "0032"
                     vol.Required(CONF_OUTPUT): vol.Coerce(int),  # 0..7 - 0 based.
-                    vol.Required(CONF_LOADID): vol.Coerce(int),
+                    vol.Optional(CONF_LOADID): vol.Coerce(int),
                     vol.Optional(CONF_STATION): vol.Coerce(int),
                     vol.Optional(CONF_BUTTON): vol.Coerce(int),
+                    vol.Optional(CONF_LOCATION): cv.string,
+                    vol.Optional(CONF_FLOOR): cv.string,
+                    vol.Optional(CONF_LTCODE): cv.string,
                 }
             ],
         ),
@@ -119,7 +125,13 @@ class LiteTouchLightEntity(LightEntity):
         self._station = cfg.get(CONF_STATION)
         self._button = cfg.get(CONF_BUTTON)
         self._loadid_config = cfg.get(CONF_LOADID)
-        self._loadid = self._loadid_config - 1  # Adjust load ID down 1 as 0 based
+        if self._loadid_config is not None:
+            self._loadid = self._loadid_config - 1  # Adjust load ID down 1 as 0 based
+        else:
+            self._loadid = cfg.get(CONF_LOADID)
+        self._location = cfg.get(CONF_LOCATION)
+        self._floor = cfg.get(CONF_FLOOR)
+        self._ltcode = cfg.get(CONF_LTCODE)
 
         self._remove_listener = None
 
@@ -144,6 +156,9 @@ class LiteTouchLightEntity(LightEntity):
             "loadid": self._loadid,
             "station": self._station,
             "button": self._button,
+            "floor": self._floor,
+            "location": self._location,
+            "ltcode": self._ltcode,
         }
 
     @property
@@ -212,7 +227,7 @@ class LiteTouchLightEntity(LightEntity):
             self._module_hex,
             self._output,
             level_pct,
-            self._loadid,
+            # self._loadid,
             transition=transition,
         )
 
@@ -239,7 +254,7 @@ class LiteTouchLightEntity(LightEntity):
             self._module_hex,
             self._output,
             0,
-            self._loadid,
+            # self._loadid,
             transition=transition,
         )
 
