@@ -195,7 +195,7 @@ class LiteTouchBridge:
         module_hex: str,
         output: int,
         level_pct: int,
-        loadid: int,
+        loadid: Optional[int] = None,
         transition: Optional[int] = None,
     ) -> None:
         """
