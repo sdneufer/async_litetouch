@@ -111,12 +111,14 @@ def async_setup_services(hass: HomeAssistant, bridge) -> None:
         bitmap_hex = call.data[BITMAP]
         time_seconds = call.data[RAMP]
         levels = call.data[LEVELS]
+        loadid = None
 
         await bridge.set_output_level(
             
             module_hex,
             bitmap_hex,
             time_seconds,
+            loadid,
             levels,
         )
 
