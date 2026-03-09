@@ -1,25 +1,26 @@
 Litetouch Integration library for interfacing with Savant SSL-P018 / 5000LC Controllers 
 
 Sample Config
-
+```
 light:
   - platform: litetouch
     host: 10.3.1.35
     port: 10001
 
-    # 4 concurrent command sockets (as requested)
+    #4 concurrent command sockets (as requested)
     command_connections: 8
 
-    # Keep notifications isolated on a separate socket (recommended)
+    #Keep notifications isolated on a separate socket (recommended)
     event_connection: true
 
-    # default fade time (seconds) for DSMLV transitions
+    #default fade time (seconds) for DSMLV transitions
     transition: 2
 
-    # Your lights
+    #Your lights
     lights:
-    # Basement
-    ## Basement
+    #Basement
+    ##Basement
+
     - name: Hall Sconce Basement 1
       module: "0022"
       output: 4
@@ -45,3 +46,4 @@ light:
       location: "Basement"
       floor: "Basement"
       ltcode: "LB07"
+```
